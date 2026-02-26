@@ -19,7 +19,7 @@ export class UploadController {
   @Post('profile/:userId')
   @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePicture(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Param('userId') userId: string,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');

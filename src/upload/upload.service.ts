@@ -29,7 +29,7 @@ export class UploadService {
     });
   }
 
-  async uploadProfilePicture(userId: string, file: Express.Multer.File) {
+  async uploadProfilePicture(userId: string, file: any) {
     try {
       // 🔹 Fetch user to check for existing image
       const user = await this.prisma.user.findUnique({
