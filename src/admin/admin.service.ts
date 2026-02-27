@@ -8,36 +8,35 @@ export class AdminService {
   async getSubscribers(search?: string) {
     const companies = await this.prisma.company.findMany({
       where: search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              {
-                selectedPlans: {
-                  hasSome: [search],
-                },
-              },
-            ],
-          }
+        ? { name: { contains: search, mode: 'insensitive' } }
         : undefined,
       include: {
         users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
+          select: { id: true, firstName: true, lastName: true, email: true },
           take: 1,
         },
-        transactions: {
-          orderBy: { date: 'desc' },
-          take: 1,
-        },
+        transactions: { orderBy: { date: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return { companies };
+    // Resolve plan IDs → names
+    const allPlanIds = [...new Set(companies.flatMap((c) => c.selectedPlans))];
+    const planMap: Record<string, string> = {};
+    if (allPlanIds.length > 0) {
+      const plans = await this.prisma.plan.findMany({
+        where: { id: { in: allPlanIds } },
+        select: { id: true, name: true },
+      });
+      for (const p of plans) planMap[p.id] = p.name;
+    }
+
+    const result = companies.map((c) => ({
+      ...c,
+      selectedPlans: c.selectedPlans.map((id) => planMap[id] ?? id),
+    }));
+
+    return { companies: result };
   }
 
   async getStats() {
@@ -49,9 +48,7 @@ export class AdminService {
         this.prisma.transaction.findMany({
           orderBy: { date: 'desc' },
           take: 5,
-          include: {
-            company: { select: { name: true } },
-          },
+          include: { company: { select: { name: true } } },
         }),
       ]);
 

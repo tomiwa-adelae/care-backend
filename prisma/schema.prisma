@@ -95,7 +95,7 @@ model Company {
   country  String?
 
   // Subscription Details
-  selectedPlans         String[]  // Array of selected plan names
+  selectedPlans         String[]  // Array of Plan UUIDs
   bundleDiscount        Float     @default(0) // Discount amount applied (7.5% of subtotal)
   amount                Float     @default(0) // Final monthly amount after discount
   plan                  PlanType  @default(STARTER) // Legacy: primary plan tier
@@ -156,6 +156,37 @@ enum TicketStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
+}
+
+// 5. Plan Catalogue (DB-driven, managed by admin)
+model Track {
+  id        String   @id @default(uuid())
+  label     String
+  color     String
+  title     String
+  subtitle  String   @db.Text
+  order     Int      @default(0)
+  plans     Plan[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Plan {
+  id                String   @id @default(uuid())
+  name              String
+  price             Float
+  setupFee          Float?
+  forLabel          String
+  features          String[]
+  highlight         Boolean  @default(false)
+  responseTime      String   @default("")
+  paystackMonthlyId String?
+  isActive          Boolean  @default(true)
+  order             Int      @default(0)
+  trackId           String
+  track             Track    @relation(fields: [trackId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // 4. Billing History (Logic for image_0707f7.png)

@@ -9,21 +9,6 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { SelectPlansDto } from './dto/select-plans.dto';
 
-// All plan prices in Naira — kept in sync with frontend/constants/plans.ts
-const PLAN_PRICES: Record<string, number> = {
-  STARTER: 55000,
-  GROWTH: 95000,
-  BUSINESS: 175000,
-  ESSENTIALS: 70000,
-  PROFESSIONAL: 120000,
-  ENTERPRISE: 230000,
-  'Insight Starter': 80000,
-  'Insight Professional': 150000,
-  'Insight Enterprise': 280000,
-};
-
-const VALID_PLAN_NAMES = new Set(Object.keys(PLAN_PRICES));
-
 const BUNDLE_DISCOUNT_RATE = 0.075; // 7.5% off when selecting 2+ plans
 
 @Injectable()
@@ -97,7 +82,6 @@ export class OnboardingService {
     const slug = slugify(dto.companyName, { lower: true, strict: true });
     const companyID = this.generateCompanyId(dto.companyName);
 
-    // If the user already has a company, update it instead of creating a new one
     if (user.companyId) {
       const updated = await this.prisma.company.update({
         where: { id: user.companyId },
@@ -138,7 +122,6 @@ export class OnboardingService {
       },
     });
 
-    // Link company to user
     await this.prisma.user.update({
       where: { id: userId },
       data: { companyId: company.id },
@@ -149,11 +132,16 @@ export class OnboardingService {
 
   // ── Plan Selection ────────────────────────────────────────────────────────
   async selectPlans(userId: string, dto: SelectPlansDto) {
-    // Validate all submitted plan names
-    const invalid = dto.selectedPlans.filter((p) => !VALID_PLAN_NAMES.has(p));
-    if (invalid.length > 0) {
+    // Fetch plans from DB by IDs
+    const plans = await this.prisma.plan.findMany({
+      where: { id: { in: dto.selectedPlans }, isActive: true },
+    });
+
+    if (plans.length !== dto.selectedPlans.length) {
+      const foundIds = new Set(plans.map((p) => p.id));
+      const missing = dto.selectedPlans.filter((id) => !foundIds.has(id));
       throw new BadRequestException(
-        `Invalid plan name(s): ${invalid.join(', ')}`,
+        `Invalid or inactive plan ID(s): ${missing.join(', ')}`,
       );
     }
 
@@ -168,13 +156,8 @@ export class OnboardingService {
       );
     }
 
-    // Calculate pricing
-    const subtotal = dto.selectedPlans.reduce(
-      (sum, name) => sum + (PLAN_PRICES[name] ?? 0),
-      0,
-    );
-
-    const applyDiscount = dto.selectedPlans.length >= 2;
+    const subtotal = plans.reduce((sum, p) => sum + p.price, 0);
+    const applyDiscount = plans.length >= 2;
     const discountAmount = applyDiscount
       ? Math.round(subtotal * BUNDLE_DISCOUNT_RATE)
       : 0;
@@ -186,7 +169,6 @@ export class OnboardingService {
         selectedPlans: dto.selectedPlans,
         bundleDiscount: discountAmount,
         amount: finalAmount,
-        // Reset payment verification when plans change
         paymentVerified: false,
       },
     });

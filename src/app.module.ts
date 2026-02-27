@@ -8,6 +8,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { PaymentModule } from './payment/payment.module';
 import { UserModule } from './user/user.module';
 import { AdminModule } from './admin/admin.module';
+import { PlansModule } from './plans/plans.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminModule } from './admin/admin.module';
     PaymentModule,
     UserModule,
     AdminModule,
+    PlansModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

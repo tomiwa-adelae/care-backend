@@ -27,13 +27,31 @@ export class UserService {
 
     const company = user.company;
 
+    // Resolve plan IDs to full plan objects
+    let plans: any[] = [];
+    if (company && company.selectedPlans.length > 0) {
+      plans = await this.prisma.plan.findMany({
+        where: { id: { in: company.selectedPlans } },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          setupFee: true,
+          features: true,
+          highlight: true,
+          responseTime: true,
+          forLabel: true,
+        },
+      });
+    }
+
     return {
       company: company
         ? {
             id: company.id,
             name: company.name,
             logoUrl: company.logoUrl,
-            selectedPlans: company.selectedPlans,
+            plans,
             amount: company.amount,
             bundleDiscount: company.bundleDiscount,
             status: company.status,

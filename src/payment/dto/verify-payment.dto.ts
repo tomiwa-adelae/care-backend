@@ -1,4 +1,10 @@
-import { IsArray, IsBoolean, IsNumber, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class VerifyPaymentDto {
   @IsString()
@@ -13,4 +19,8 @@ export class VerifyPaymentDto {
 
   @IsBoolean()
   isBundle: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  discountAmount?: number;
 }

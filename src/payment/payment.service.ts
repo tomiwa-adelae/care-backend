@@ -71,13 +71,25 @@ export class PaymentService {
         subscriptionType: dto.isBundle ? 'one_time' : 'subscription',
         paystackCustomerCode: txData.customer?.customer_code ?? null,
         paystackSubCode: txData.subscription?.subscription_code ?? null,
+        // Always keep selectedPlans and amount in sync with what was actually paid.
+        // The onboarding flow sets these before payment; the home-page flow sets them here.
+        selectedPlans: dto.selectedPlans,
+        amount: dto.amount,
+        ...(dto.discountAmount !== undefined
+          ? { bundleDiscount: dto.discountAmount }
+          : {}),
       },
     });
 
-    // 5. Record transaction
+    // 5. Resolve plan IDs to names for the description
+    const plans = await this.prisma.plan.findMany({
+      where: { id: { in: dto.selectedPlans } },
+      select: { name: true },
+    });
+    const planNames = plans.map((p) => p.name);
     const description = dto.isBundle
-      ? `Bundle: ${dto.selectedPlans.join(' + ')}`
-      : `${dto.selectedPlans[0]} Plan — Monthly Subscription`;
+      ? `Bundle: ${planNames.join(' + ')}`
+      : `${planNames[0] ?? dto.selectedPlans[0]} Plan — Monthly Subscription`;
 
     await this.prisma.transaction.create({
       data: {
