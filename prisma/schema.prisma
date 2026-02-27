@@ -76,19 +76,35 @@ enum Role {
 model Company {
   id         String  @id @default(uuid())
   name       String
-  address    String?
   websiteUrl String?
-  taxId      String? // RC Number
+  rcNumber   String? // RC Number / Tax ID
 
   companyID String
+  slug      String
 
-  slug String
+  // Business Details
+  industry      String?
+  companySize   String? // e.g. "1-10", "11-50", "51-200", "201-500", "500+"
+  companyPhone  String?
+  logoUrl       String?
+
+  // Company Address
+  address  String?
+  city     String?
+  state    String?
+  country  String?
 
   // Subscription Details
-  plan        PlanType  @default(STARTER)
-  status      SubStatus @default(ACTIVE)
-  amount      Float // e.g. 175000.00
-  nextBilling DateTime?
+  selectedPlans         String[]  // Array of selected plan names
+  bundleDiscount        Float     @default(0) // Discount amount applied (7.5% of subtotal)
+  amount                Float     @default(0) // Final monthly amount after discount
+  plan                  PlanType  @default(STARTER) // Legacy: primary plan tier
+  status                SubStatus @default(ACTIVE)
+  nextBilling           DateTime?
+  paymentVerified       Boolean   @default(false)
+  subscriptionType      String    @default("one_time") // "subscription" | "one_time"
+  paystackCustomerCode  String?
+  paystackSubCode       String?   // Paystack subscription code (recurring plans)
 
   // Relations
   users        User[]
@@ -149,6 +165,8 @@ model Transaction {
   description String // e.g., "Monthly Subscription"
   status      String   @default("Paid") // Or enum
   date        DateTime @default(now())
+  paystackRef String?  @unique
+  type        String   @default("subscription") // "subscription" | "one_time"
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
