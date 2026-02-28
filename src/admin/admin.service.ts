@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -57,6 +57,78 @@ export class AdminService {
       activeSubscribers,
       openTickets,
       recentTransactions,
+    };
+  }
+
+  async getSubscriberDetail(companyId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      include: {
+        users: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            createdAt: true,
+            onboardingCompleted: true,
+          },
+        },
+        transactions: { orderBy: { date: 'desc' } },
+        tickets: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+
+    if (!company) throw new NotFoundException('Subscriber not found');
+
+    // Resolve plan IDs → full plan objects
+    let plans: any[] = [];
+    if (company.selectedPlans.length > 0) {
+      plans = await this.prisma.plan.findMany({
+        where: { id: { in: company.selectedPlans } },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          forLabel: true,
+          features: true,
+          responseTime: true,
+          track: { select: { title: true, label: true, color: true } },
+        },
+      });
+    }
+
+    return {
+      company: {
+        id: company.id,
+        name: company.name,
+        companyID: company.companyID,
+        slug: company.slug,
+        websiteUrl: company.websiteUrl,
+        industry: company.industry,
+        companySize: company.companySize,
+        companyPhone: company.companyPhone,
+        logoUrl: company.logoUrl,
+        address: company.address,
+        city: company.city,
+        state: company.state,
+        country: company.country,
+        rcNumber: company.rcNumber,
+        status: company.status,
+        amount: company.amount,
+        bundleDiscount: company.bundleDiscount,
+        subscriptionType: company.subscriptionType,
+        nextBilling: company.nextBilling,
+        paymentVerified: company.paymentVerified,
+        paystackCustomerCode: company.paystackCustomerCode,
+        paystackSubCode: company.paystackSubCode,
+        createdAt: company.createdAt,
+      },
+      users: company.users,
+      plans,
+      transactions: company.transactions,
+      tickets: company.tickets,
     };
   }
 

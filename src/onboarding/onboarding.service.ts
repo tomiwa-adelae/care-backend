@@ -9,7 +9,17 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { SelectPlansDto } from './dto/select-plans.dto';
 
-const BUNDLE_DISCOUNT_RATE = 0.075; // 7.5% off when selecting 2+ plans
+const BILLING_MULTIPLIERS: Record<string, number> = {
+  monthly: 1,
+  quarterly: 3,
+  annually: 12,
+};
+
+const BILLING_DISCOUNTS: Record<string, number> = {
+  monthly: 0,
+  quarterly: 0.05,
+  annually: 0.1,
+};
 
 @Injectable()
 export class OnboardingService {
@@ -156,12 +166,14 @@ export class OnboardingService {
       );
     }
 
+    const cycle = dto.billingCycle ?? 'monthly';
+    const multiplier = BILLING_MULTIPLIERS[cycle] ?? 1;
+    const discountRate = BILLING_DISCOUNTS[cycle] ?? 0;
+
     const subtotal = plans.reduce((sum, p) => sum + p.price, 0);
-    const applyDiscount = plans.length >= 2;
-    const discountAmount = applyDiscount
-      ? Math.round(subtotal * BUNDLE_DISCOUNT_RATE)
-      : 0;
-    const finalAmount = subtotal - discountAmount;
+    const periodSubtotal = subtotal * multiplier;
+    const discountAmount = Math.round(periodSubtotal * discountRate);
+    const finalAmount = periodSubtotal - discountAmount;
 
     await this.prisma.company.update({
       where: { id: user.companyId },
@@ -169,6 +181,7 @@ export class OnboardingService {
         selectedPlans: dto.selectedPlans,
         bundleDiscount: discountAmount,
         amount: finalAmount,
+        subscriptionType: cycle,
         paymentVerified: false,
       },
     });
@@ -177,9 +190,10 @@ export class OnboardingService {
       message: 'Plan selection saved. Proceed to payment.',
       selectedPlans: dto.selectedPlans,
       subtotal,
+      periodSubtotal,
       discountAmount,
       finalAmount,
-      discountApplied: applyDiscount,
+      billingCycle: cycle,
     };
   }
 }

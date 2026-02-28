@@ -57,9 +57,16 @@ export class PaymentService {
       return { message: 'Payment already recorded', alreadyProcessed: true };
     }
 
-    // 3. Calculate next billing date (~30 days)
+    // 3. Calculate next billing date based on billing cycle
+    const cycle = dto.billingCycle ?? 'monthly';
     const nextBilling = new Date();
-    nextBilling.setDate(nextBilling.getDate() + 30);
+    if (cycle === 'quarterly') {
+      nextBilling.setDate(nextBilling.getDate() + 90);
+    } else if (cycle === 'annually') {
+      nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+    } else {
+      nextBilling.setDate(nextBilling.getDate() + 30);
+    }
 
     // 4. Update company subscription details
     await this.prisma.company.update({
@@ -68,11 +75,9 @@ export class PaymentService {
         status: 'ACTIVE',
         paymentVerified: true,
         nextBilling,
-        subscriptionType: dto.isBundle ? 'one_time' : 'subscription',
+        subscriptionType: cycle,
         paystackCustomerCode: txData.customer?.customer_code ?? null,
         paystackSubCode: txData.subscription?.subscription_code ?? null,
-        // Always keep selectedPlans and amount in sync with what was actually paid.
-        // The onboarding flow sets these before payment; the home-page flow sets them here.
         selectedPlans: dto.selectedPlans,
         amount: dto.amount,
         ...(dto.discountAmount !== undefined
@@ -87,9 +92,13 @@ export class PaymentService {
       select: { name: true },
     });
     const planNames = plans.map((p) => p.name);
-    const description = dto.isBundle
-      ? `Bundle: ${planNames.join(' + ')}`
-      : `${planNames[0] ?? dto.selectedPlans[0]} Plan — Monthly Subscription`;
+    const cycleLabel =
+      cycle === 'annually'
+        ? 'Annual'
+        : cycle === 'quarterly'
+          ? 'Quarterly'
+          : 'Monthly';
+    const description = `${planNames.join(' + ')} — ${cycleLabel} Subscription`;
 
     await this.prisma.transaction.create({
       data: {
@@ -97,7 +106,7 @@ export class PaymentService {
         description,
         status: 'Paid',
         paystackRef: dto.reference,
-        type: dto.isBundle ? 'one_time' : 'subscription',
+        type: cycle === 'monthly' ? 'subscription' : 'one_time',
         companyId: user.companyId,
       },
     });

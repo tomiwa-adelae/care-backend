@@ -1,9 +1,84 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        username: true,
+        phoneNumber: true,
+        image: true,
+        dob: true,
+        gender: true,
+        address: true,
+        city: true,
+        state: true,
+        country: true,
+        role: true,
+        onboardingCompleted: true,
+        createdAt: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            websiteUrl: true,
+            industry: true,
+            companySize: true,
+            companyPhone: true,
+            logoUrl: true,
+            address: true,
+            city: true,
+            state: true,
+            country: true,
+            rcNumber: true,
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.password) {
+      throw new BadRequestException(
+        'This account uses social login — password cannot be changed here',
+      );
+    }
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+    return { message: 'Password changed successfully' };
+  }
 
   async getDashboardData(userId: string) {
     const user = await this.prisma.user.findUnique({

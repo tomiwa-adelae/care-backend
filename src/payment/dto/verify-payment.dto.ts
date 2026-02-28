@@ -17,10 +17,15 @@ export class VerifyPaymentDto {
   @IsNumber()
   amount: number;
 
+  @IsOptional()
   @IsBoolean()
-  isBundle: boolean;
+  isBundle?: boolean;
 
   @IsOptional()
   @IsNumber()
   discountAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  billingCycle?: string; // 'monthly' | 'quarterly' | 'annually'
 }

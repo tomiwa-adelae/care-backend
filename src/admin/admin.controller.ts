@@ -20,6 +20,11 @@ export class AdminController {
     return this.adminService.getSubscribers(search);
   }
 
+  @Get('subscribers/:companyId')
+  getSubscriberDetail(@Param('companyId') companyId: string) {
+    return this.adminService.getSubscriberDetail(companyId);
+  }
+
   @Get('stats')
   getStats() {
     return this.adminService.getStats();
